@@ -67,13 +67,8 @@ static int lcd_init(void)
 
     printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
 
-    char test[] = "Test";
     printk(KERN_INFO "Sending commands.");
     command_out(init_commands, 6);
-
-    printk(KERN_INFO "Sending LCD default image.");
-    lcd_char_write(test, 1);
-    printk(KERN_INFO "Sent test image.");
 }
 
 static int __init nokia_5110_init(void)
@@ -153,6 +148,8 @@ static int __init nokia_5110_init(void)
         unregister_chrdev(nokia.majorNo, DEVICE_NAME);
         return -1;
     }
+
+    printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m")
 
     return 0;
 }
