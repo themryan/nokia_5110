@@ -129,6 +129,7 @@ static int __init nokia_5110_init(void)
 	if( IS_ERR(nokiaObject) )
 	{
 		printk( KERN_ALERT "\033[31mCould not create kobject\033[0m");
+        class_unregister(nokiaClass);
 		class_destroy(nokiaClass);
 		unregister_chrdev(majorNo, DEVICE_NAME);
 		return PTR_ERR(nokiaObject);
@@ -137,6 +138,7 @@ static int __init nokia_5110_init(void)
     if( lcd_init() )
     {
         printk( KERN_ALERT "\033[31mCould not initialize LCD control.\033[0m");
+        class_unregister(nokiaClass);
         class_destroy(nokiaClass);
 		unregister_chrdev(majorNo, DEVICE_NAME);
         return -1;
