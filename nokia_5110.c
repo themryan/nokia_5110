@@ -24,8 +24,8 @@ static int gpioSclk = 46;
 static uint8_t  VBUFFER[LCD_HEIGHT*LCD_WIDTH/8] = { 0 };
 static size_t vbuffer_len = sizeof(VBUFFER);
 
-#define DEVICE_NAME "nokiachar"
-#define CLASS_NAME "nokia"
+#define DEVICE_NAME "nokiacdev"
+#define CLASS_NAME "nokiaclass"
 
 static int majorNo;
 static struct class * nokiaClass = NULL;
@@ -53,33 +53,52 @@ static struct file_operations fops =
 static int lcd_raw_write(uint8_t * buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t * buffer, size_t buffer_lne);
 
+/*   Module Initiazlization and Exit */
+
+static int lcd_init(void)
+{
+    uint8_t init_commands[] = { LCD_COMMAND_FUNCT_SET| 0x01, LCD_COMMAND_Vop | 0x30, 
+                LCD_COMMAND_TEMP_CTRL, LCD_COMMAND_BIAS_SYS | 0x04, 
+                LCD_COMMAND_FUNCT_SET, LCD_COMMAND_DISP_CTRL | 0x04 };
+
+    printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
+
+    char test[] = "Test";
+    printk(KERN_INFO "Sending commands.");
+    command_out(init_commands, 6);
+    printk(KERN_INFO "Sending LCD default image.");
+    lcd_char_write(test, 1);
+    printk(KERN_INFO "Sent test image.");
+}
+
 static int __init nokia_5110_init(void)
 {
 	printk(KERN_INFO "Opening the Nokia 5110 driver\n");
 
 	printk(KERN_INFO "Configuring the pins\n");
 
+    // generic output pins
 	gpio_request(gpioRst, "sysfs");
 	gpio_direction_output(gpioRst, 1);
-	gpio_request(gpioSclk, "sysfs"); 
-	gpio_direction_output(gpioSclk, 1);
-	gpio_request(gpioDout, "sysfs");
-	gpio_direction_output(gpioDout, 1);
-	// generic output pins
 	gpio_request(gpioDc, "sysfs");
 	gpio_direction_output(gpioDc, 0);
 	gpio_request(gpioSce, "sysfs");
 	gpio_direction_output(gpioSce, 1);
 	gpio_set_value(gpioRst, 0);
 
-	printk(KERN_INFO "Done with configuring pins\n");	
+    // Data and Clock
+    gpio_request(gpioSclk, "sysfs"); 
+	gpio_direction_output(gpioSclk, 1);
+	gpio_request(gpioDout, "sysfs");
+	gpio_direction_output(gpioDout, 1);
 
+	printk(KERN_INFO "Done with configuring pins\n");	
 	printk(KERN_INFO "Initializing chardev\n");
 
 	majorNo = register_chrdev(0, DEVICE_NAME, &fops);
 	if( majorNo < 0 )
 	{
-		printk(KERN_ALERT "\033[1;31mNokia 5110 driver failed to register.\n\033[0m");
+		printk(KERN_ALERT "\033[31mNokia 5110 driver failed to register.\n\033[0m");
 		return majorNo;
 	}
 
@@ -99,7 +118,7 @@ static int __init nokia_5110_init(void)
 	printk(KERN_INFO "Device created.");	
 	if ( IS_ERR(nokiaDev) )
 	{
-		printk( KERN_ALERT "\033[1;31mCould not create nokia device.\033[0m");
+		printk( KERN_ALERT "\033[31mCould not create nokia device.\033[0m");
 		class_destroy(nokiaClass);
 		unregister_chrdev(majorNo, DEVICE_NAME);
 		return PTR_ERR(nokiaClass);
@@ -109,33 +128,26 @@ static int __init nokia_5110_init(void)
 	nokiaObject = kobject_create_and_add("nokia_5110", kernel_kobj); 
 	if( IS_ERR(nokiaObject) )
 	{
-		printk( KERN_ALERT "\033[1;31mCould not create kobject\033[0m");
+		printk( KERN_ALERT "\033[31mCould not create kobject\033[0m");
 		class_destroy(nokiaClass);
 		unregister_chrdev(majorNo, DEVICE_NAME);
 		return PTR_ERR(nokiaObject);
 	}
 
-	printk(KERN_INFO "\033[1;32mInitializing LCD and setting pins.\033[0m");
-
-	{
-		uint8_t init_commands[] = { LCD_COMMAND_FUNCT_SET| 0x01, LCD_COMMAND_Vop | 0x30, 
-					LCD_COMMAND_TEMP_CTRL, LCD_COMMAND_BIAS_SYS | 0x04, 
-					LCD_COMMAND_FUNCT_SET, LCD_COMMAND_DISP_CTRL | 0x04 };
-
-		char test[] = "Test";
-		printk(KERN_INFO "Sending commands.");
-		command_out(init_commands, 6);
-		printk(KERN_INFO "Sending LCD default image.");
-		lcd_char_write(test, 1);
-		printk(KERN_INFO "Sent test image.");
-	}
+    if( lcd_init() )
+    {
+        printk( KERN_ALERT "\033[31mCould not initialize LCD control.\033[0m");
+        class_destroy(nokiaClass);
+		unregister_chrdev(majorNo, DEVICE_NAME);
+        return -1;
+    }
 
 	return 0;
 }
 
 static void __exit nokia_5110_exit(void)
 {
-	printk(KERN_INFO "\033[1;31mExiting the Nokia 5110 driver\033[0m");
+	printk(KERN_INFO "\033[31mExiting the Nokia 5110 driver\033[0m");
 
 	gpio_unexport(gpioDc);
 	gpio_unexport(gpioRst);
@@ -151,7 +163,7 @@ static void __exit nokia_5110_exit(void)
 	gpio_free(gpioDout);
 	gpio_free(gpioSclk);
 
-	device_destroy(nokiaClass, MKDEV(majorNo, 0));
+	device_destroy(nokiaClass, dev);
 	class_unregister(nokiaClass);
 	class_destroy(nokiaClass);
 	unregister_chrdev(majorNo, DEVICE_NAME);
@@ -226,7 +238,7 @@ static int lcd_char_write(uint8_t * buffer, size_t buffer_len)
 		}	
 		else
 		{
-			printk(KERN_ALERT "\033[1;31mIndex %d out of bounds.\033[0m", index);
+			printk(KERN_ALERT "\033[31mIndex %d out of bounds.\033[0m", index);
 			return -1;
 		}
 
@@ -255,7 +267,8 @@ static int raw_out(uint8_t * buffer, size_t buffer_len)
 {
 	int i;
 	unsigned long delta = 5 * HZ / 1000; // every 25 ms
-	unsigned long next = get_jiffies_64() + delta;
+    unsigned long now = get_jiffies_64();
+	unsigned long next = now + delta;
 
 	gpio_set_value(gpioSce, 0);
 
@@ -263,12 +276,12 @@ static int raw_out(uint8_t * buffer, size_t buffer_len)
 	{
 		int bits = 8;
 		uint8_t out = *buffer;
-		unsigned long now = get_jiffies_64();
 
 		while(bits)
 		{	
 			gpio_set_value(gpioSclk, 0);
 
+            // MSB first
 			gpio_set_value(gpioDout, (0x80 & out) ? 1 : 0);
 				
 			out <<= 1;	
