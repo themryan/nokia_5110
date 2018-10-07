@@ -69,6 +69,7 @@ static int lcd_init(void)
     char test[] = "Test";
     printk(KERN_INFO "Sending commands.");
     command_out(init_commands, 6);
+    
     printk(KERN_INFO "Sending LCD default image.");
     lcd_char_write(test, 1);
     printk(KERN_INFO "Sent test image.");
@@ -76,6 +77,7 @@ static int lcd_init(void)
 
 static int __init nokia_5110_init(void)
 {
+	int i = 0;
 	printk(KERN_INFO "Opening the Nokia 5110 driver\n");
 
 	printk(KERN_INFO "Configuring the pins\n");
@@ -89,8 +91,8 @@ static int __init nokia_5110_init(void)
 	gpio_direction_output(gpioSce, 1);
 	gpio_set_value(gpioRst, 0);
 
-    // Data and Clock
-    gpio_request(gpioSclk, "sysfs"); 
+    	// Data and Clock
+     	gpio_request(gpioSclk, "sysfs"); 
 	gpio_direction_output(gpioSclk, 1);
 	gpio_request(gpioDout, "sysfs");
 	gpio_direction_output(gpioDout, 1);
@@ -118,7 +120,7 @@ static int __init nokia_5110_init(void)
 
 	nokia.dev_no = MKDEV(nokia.majorNo, 0);	
 	register_chrdev_region(nokia.dev_no, 1, "Nokia 5110");
-	nokia.dev = device_create(nokia.class, NULL, dev, NULL, DEVICE_NAME);
+	nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, DEVICE_NAME);
 	printk(KERN_INFO "Device created.");	
 	if ( IS_ERR(nokia.dev) )
 	{
@@ -129,7 +131,7 @@ static int __init nokia_5110_init(void)
 	}
 
 	printk(KERN_INFO "Creating kobject interface");
-	nokiaObject = kobject_create_and_add("nokia_5110", kernel_kobj); 
+	nokia.kobject = kobject_create_and_add("nokia_5110", kernel_kobj); 
 	if( IS_ERR(nokia.kobject) )
 	{
 		printk( KERN_ALERT "\033[31mCould not create kobject\033[0m");
@@ -169,7 +171,7 @@ static void __exit nokia_5110_exit(void)
 	gpio_free(gpioDout);
 	gpio_free(gpioSclk);
 
-	device_destroy(nokia.class, dev);
+	device_destroy(nokia.class, nokia.dev_no);
 	class_unregister(nokia.class);
 	class_destroy(nokia.class);
 	unregister_chrdev(nokia.majorNo, DEVICE_NAME);
