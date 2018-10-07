@@ -27,11 +27,14 @@ static size_t vbuffer_len = sizeof(VBUFFER);
 #define DEVICE_NAME "nokiacdev"
 #define CLASS_NAME "nokiaclass"
 
-static int majorNo;
-static struct class * nokiaClass = NULL;
-static struct device * nokiaDev = NULL;
-static struct kobject * nokiaObject = NULL;
-static dev_t dev;
+struct nokia_struct 
+{
+    static int majorNo;
+    static struct class * class ;
+    static struct device * dev ;
+    static struct kobject * kobject ;
+    static dev_t dev_no;
+} nokia = { 0 };
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -95,52 +98,53 @@ static int __init nokia_5110_init(void)
 	printk(KERN_INFO "Done with configuring pins\n");	
 	printk(KERN_INFO "Initializing chardev\n");
 
-	majorNo = register_chrdev(0, DEVICE_NAME, &fops);
-	if( majorNo < 0 )
+	nokia.majorNo = register_chrdev(0, DEVICE_NAME, &fops);
+	if( nokia.majorNo < 0 )
 	{
 		printk(KERN_ALERT "\033[31mNokia 5110 driver failed to register.\n\033[0m");
-		return majorNo;
+		return nokia.majorNo;
 	}
 
 	printk( KERN_INFO "Creating nokia class.");
-	nokiaClass = class_create(THIS_MODULE, CLASS_NAME);
-	if ( IS_ERR(nokiaClass) )
+	nokia.class = class_create(THIS_MODULE, CLASS_NAME);
+	if ( IS_ERR(nokia.class) )
 	{
-		unregister_chrdev(majorNo, DEVICE_NAME);
-		return PTR_ERR(nokiaClass);
+        printk( KERN_ALERT "\033[31mCould not register class for %d\033[0m", nokia.majorNo);
+		unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+		return PTR_ERR(nokia.class);
 	}
 
 	printk( KERN_INFO "Create device.");
 
-	dev = MKDEV(majorNo, 0);	
-	register_chrdev_region(dev, 1, "Nokia 5110");
-	nokiaDev = device_create(nokiaClass, NULL, dev, NULL, DEVICE_NAME);
+	nokia.dev_no = MKDEV(nokia.majorNo, 0);	
+	register_chrdev_region(nokia.dev_no, 1, "Nokia 5110");
+	nokia.dev = device_create(nokia.class, NULL, dev, NULL, DEVICE_NAME);
 	printk(KERN_INFO "Device created.");	
-	if ( IS_ERR(nokiaDev) )
+	if ( IS_ERR(nokia.dev) )
 	{
 		printk( KERN_ALERT "\033[31mCould not create nokia device.\033[0m");
-		class_destroy(nokiaClass);
-		unregister_chrdev(majorNo, DEVICE_NAME);
-		return PTR_ERR(nokiaClass);
+		class_destroy(nokia.class);
+		unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+		return PTR_ERR(nokia.class);
 	}
 
 	printk(KERN_INFO "Creating kobject interface");
 	nokiaObject = kobject_create_and_add("nokia_5110", kernel_kobj); 
-	if( IS_ERR(nokiaObject) )
+	if( IS_ERR(nokia.kobject) )
 	{
 		printk( KERN_ALERT "\033[31mCould not create kobject\033[0m");
-        class_unregister(nokiaClass);
-		class_destroy(nokiaClass);
-		unregister_chrdev(majorNo, DEVICE_NAME);
-		return PTR_ERR(nokiaObject);
+        class_unregister(nokia.class);
+		class_destroy(nokia.class);
+		unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+		return PTR_ERR(nokia.kobject);
 	}
 
     if( lcd_init() )
     {
         printk( KERN_ALERT "\033[31mCould not initialize LCD control.\033[0m");
-        class_unregister(nokiaClass);
-        class_destroy(nokiaClass);
-		unregister_chrdev(majorNo, DEVICE_NAME);
+        class_unregister(nokia.class);
+        class_destroy(nokia.class);
+		unregister_chrdev(nokia.majorNo, DEVICE_NAME);
         return -1;
     }
 
@@ -165,11 +169,11 @@ static void __exit nokia_5110_exit(void)
 	gpio_free(gpioDout);
 	gpio_free(gpioSclk);
 
-	device_destroy(nokiaClass, dev);
-	class_unregister(nokiaClass);
-	class_destroy(nokiaClass);
-	unregister_chrdev(majorNo, DEVICE_NAME);
-	kobject_del(nokiaObject);
+	device_destroy(nokia.class, dev);
+	class_unregister(nokia.class);
+	class_destroy(nokia.class);
+	unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+	kobject_del(nokia.kobject);
 	printk(KERN_INFO "Devices unregistered and released.\n");
 }
 
