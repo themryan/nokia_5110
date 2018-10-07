@@ -27,13 +27,13 @@ static size_t vbuffer_len = sizeof(VBUFFER);
 #define DEVICE_NAME "nokiacdev"
 #define CLASS_NAME "nokiaclass"
 
-struct nokia_struct 
+static struct nokia_struct 
 {
-    static int majorNo;
-    static struct class * class ;
-    static struct device * dev ;
-    static struct kobject * kobject ;
-    static dev_t dev_no;
+    int majorNo;
+    struct class * class ;
+    struct device * dev ;
+    struct kobject * kobject ;
+    dev_t dev_no;
 } nokia = { 0 };
 
 static int dev_open(struct inode *, struct file *);
