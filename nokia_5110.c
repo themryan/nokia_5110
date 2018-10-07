@@ -149,7 +149,7 @@ static int __init nokia_5110_init(void)
         return -1;
     }
 
-    printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m")
+    printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
     return 0;
 }
