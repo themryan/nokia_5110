@@ -6,6 +6,7 @@
 #include <linux/gpio.h>
 #include <linux/jiffies.h>
 #include <linux/kobject.h>
+#include <linux/spinlock.h>
 
 #include "nokia_5110.h"
 
@@ -35,6 +36,7 @@ static struct nokia_struct
     struct device *dev;
     struct kobject *kobject;
     dev_t dev_no;
+    spin_lock_t lock;
 } nokia = {0};
 
 static int dev_open(struct inode *, struct file *);
@@ -61,9 +63,12 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 static int lcd_init(void)
 {
-    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01, LCD_COMMAND_Vop | 0x30,
-                               LCD_COMMAND_TEMP_CTRL, LCD_COMMAND_BIAS_SYS | 0x04,
-                               LCD_COMMAND_FUNCT_SET, LCD_COMMAND_DISP_CTRL | 0x04};
+    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01, 
+                                LCD_COMMAND_Vop | 0x30,
+                                LCD_COMMAND_TEMP_CTRL, 
+                                LCD_COMMAND_BIAS_SYS | 0x04,
+                                LCD_COMMAND_FUNCT_SET, 
+                                LCD_COMMAND_DISP_CTRL | 0x04};
 
     printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
 
@@ -151,6 +156,8 @@ static int __init nokia_5110_init(void)
 
     printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
+    spin_lock_init(&nokia.lock);
+
     return 0;
 }
 
@@ -185,14 +192,19 @@ module_exit(nokia_5110_exit);
 
 static int dev_open(struct inode *pinode, struct file *filep)
 {
-    lcd_char_write("Ready", 4);
     return 0;
 }
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
-    int err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
+    int err = 0;
+
+    spin_lock(nokia.lock);    
+
+    err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
+
+    spin_unlock(nokia.lock);
 
     if (err != 0)
     {
@@ -206,7 +218,11 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
-    int err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
+    int err = 0;
+    
+    spin_lock(nokia.lock);
+    err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
+    spin_unlock(nokia.lock);
 
     if (err != 0)
     {
@@ -214,7 +230,9 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
         return -EFAULT;
     }
 
+    spin_lock(nokia.lock);
     lcd_char_write(VBUFFER, num_copy);
+    spin_unlock(nokia.lock);
 
     return 0;
 }
