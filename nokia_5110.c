@@ -110,6 +110,7 @@ static int __init nokia_5110_init(void)
         return nokia.majorNo;
     }
 
+    printk(KERN_INFO "Major No. %d create for nokia device", nokia.majorNo);
     printk(KERN_INFO "Creating nokia class.");
     nokia.class = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(nokia.class))
@@ -193,8 +194,8 @@ static int dev_open(struct inode *pinode, struct file *filep)
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = (vbuffer_len > len) ? len : vbuffer_len;
-    int err = copy_to_user(buffer, VBUFFER, num_copy);
+    size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    int err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
     if (err != 0)
     {
@@ -207,8 +208,8 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = (vbuffer_len > len) ? len : vbuffer_len;
-    int err = copy_from_user(VBUFFER, buffer, num_copy);
+    size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    int err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
 
     if (err != 0)
     {
