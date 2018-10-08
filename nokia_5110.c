@@ -70,7 +70,7 @@ static uint8_t *VBUFFER = displayMap;
 static size_t vbuffer_len = sizeof(displayMap);
 
 #define DEVICE_NAME "nokiacdev"
-#define CLASS_NAME "nokiaclass"
+#define CLASS_NAME "nokia_5110"
 
 static struct nokia_struct
 {
