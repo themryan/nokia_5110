@@ -360,6 +360,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
     }
 
     gpio_set_value(gpioSce, 1);
+    gpio_set_value(gpioDout, 1);
 
     return 0;
 }
