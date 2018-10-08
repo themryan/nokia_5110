@@ -160,7 +160,6 @@ static int __init nokia_5110_init(void)
         class_destroy(nokia.class);
         unregister_chrdev(nokia.majorNo, DEVICE_NAME);
         spin_unlock(&nokia.lock);
-        ret = -1;
     }
 
     spin_lock_init(&nokia.lock);
