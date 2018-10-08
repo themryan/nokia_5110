@@ -103,7 +103,7 @@ static struct kobj_attribute x =
 __ATTR("X", 0222, NULL, X_store);
 
 static struct kobj_attribute y =
-__ATTR("Y", 0222, NULL, _Y_store);
+__ATTR("Y", 0222, NULL, Y_store);
 
 static struct attribute *nokia_attrs[] = 
 {
@@ -116,7 +116,7 @@ static struct attribute_group nokia_attr_group =
 {
     .name = lcd_settings,
     .attrs = nokia_attrs
-}
+};
 
 /*   Module Initiazlization and Exit */
 
