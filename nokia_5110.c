@@ -95,10 +95,10 @@ static struct file_operations fops =
 static char lcd_settings[] = "LCDSettings";
 
 static struct kobj_attribute x =
-__ATTR_WO(X);
+__ATTR(X, 0220, NULL, X_store);
 
 static struct kobj_attribute y =
-__ATTR_WO(Y);
+__ATTR(Y, 0220, NULL, Y_store);
 
 static struct attribute *nokia_attrs[] = 
 {
