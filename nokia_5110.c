@@ -55,6 +55,9 @@ static int lcd_init(void);
 static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
+static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+
 // BeagleBone Black pinouts used
 
 static int gpioDc = 44;
@@ -97,7 +100,7 @@ static struct file_operations fops =
 static char lcd_settings[] = "LCDSettings";
 
 static struct kobj_attribute x =
-__ATTR("X", 0222, NULL, _X_store);
+__ATTR("X", 0222, NULL, X_store);
 
 static struct kobj_attribute y =
 __ATTR("Y", 0222, NULL, _Y_store);
@@ -553,7 +556,7 @@ static int set_temperature_control(uint8_t bias)
 
 // Attribute show store wrappers
 
-ssize_t _X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     int x_pos = 0;
 
@@ -567,7 +570,7 @@ ssize_t _X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
     return x_pos;
 }
 
-ssize_t _Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     int y_pos = 0;
 
