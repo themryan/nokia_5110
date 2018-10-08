@@ -23,7 +23,7 @@ static int gpioDout = 26;
 static int gpioSclk = 46;
 
 // buffer for video
-static uint8_t * VBUFFER = displayMap;
+static uint8_t *VBUFFER = displayMap;
 static size_t vbuffer_len = sizeof(VBUFFER);
 
 #define DEVICE_NAME "nokiacdev"
@@ -50,12 +50,11 @@ static int data_out(const uint8_t *buffer, size_t buffer_len);
 static int raw_out(uint8_t *buffer, size_t buffer_len);
 
 static struct file_operations fops =
-{
-    .open = dev_open,
-    .read = dev_read,
-    .write = dev_write,
-    .release = dev_release
-};
+    {
+        .open = dev_open,
+        .read = dev_read,
+        .write = dev_write,
+        .release = dev_release};
 
 static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
@@ -65,12 +64,12 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 static int lcd_init(void)
 {
     int i = 0;
-    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01, 
-                                LCD_COMMAND_Vop | 0x30,
-                                LCD_COMMAND_TEMP_CTRL, 
-                                LCD_COMMAND_BIAS_SYS | 0x04,
-                                LCD_COMMAND_FUNCT_SET, 
-                                LCD_COMMAND_DISP_CTRL | 0x04};
+    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01,
+                               LCD_COMMAND_Vop | 0x30,
+                               LCD_COMMAND_TEMP_CTRL,
+                               LCD_COMMAND_BIAS_SYS | 0x04,
+                               LCD_COMMAND_FUNCT_SET,
+                               LCD_COMMAND_DISP_CTRL | 0x04};
 
     printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
 
@@ -95,7 +94,7 @@ static int __init nokia_5110_init(void)
     gpio_request(gpioRst, "sysfs");
     gpio_direction_output(gpioRst, 0);
 
-    while( !time_after(now, next) )
+    while (!time_after(now, next))
     {
         now = get_jiffies_64();
     }
@@ -160,7 +159,7 @@ static int __init nokia_5110_init(void)
 
     printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
-    if( lcd_init() == 0 )
+    if (lcd_init() == 0)
     {
         nokia.initialized = 1;
         printk(KERN_INFO "\033[32mLCD Initialized.\033[0m");
@@ -209,9 +208,9 @@ static int dev_open(struct inode *pinode, struct file *filep)
 {
     int ret = 0;
 
-    if ( !nokia.initialized )
+    if (!nokia.initialized)
     {
-        lcd_init() ;
+        lcd_init();
     }
     return 0;
 }
@@ -219,17 +218,17 @@ static int dev_open(struct inode *pinode, struct file *filep)
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = 0;
-    int err = 0;   
+    int err = 0;
 
-    if ( *offset >= vbuffer_len )
+    if (*offset >= vbuffer_len)
     {
         return 0;
     }
 
-    if ( len == 0 || !buffer )
+    if (len == 0 || !buffer)
     {
-	    printk(KERN_ALERT "Invalid buffer.");
-	    return -EFAULT;
+        printk(KERN_ALERT "Invalid buffer.");
+        return -EFAULT;
     }
 
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
@@ -250,19 +249,19 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     size_t num_copy = 0;
     int err = 0;
 
-    if ( *offset >= vbuffer_len )
+    if (*offset >= vbuffer_len)
     {
         return 0;
     }
 
-    if( len == 0 || !buffer )
+    if (len == 0 || !buffer)
     {
-	    printk(KERN_ALERT "Invalid buffer.");
-	    return -EFAULT;
+        printk(KERN_ALERT "Invalid buffer.");
+        return -EFAULT;
     }
 
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
-    
+
     err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
 
     if (err != 0)
@@ -335,7 +334,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
     unsigned long next = now + delta;
 
     gpio_set_value(gpioSce, 0);
-/*
+    /*
     while (!time_after(now, next))
     {
         now = get_jiffies_64();
@@ -351,7 +350,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
             // MSB first
             gpio_set_value(gpioDout, (0x80 & out) ? 1 : 0);
 
-	    gpio_set_value(gpioSclk, 1);
+            gpio_set_value(gpioSclk, 1);
 
             out <<= 1;
 
