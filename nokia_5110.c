@@ -56,7 +56,7 @@ static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
 // BeagleBone Black pinouts used
 
