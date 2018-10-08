@@ -168,10 +168,7 @@ static int __init nokia_5110_init(void)
         class_unregister(nokia.class);
         class_destroy(nokia.class);
         unregister_chrdev(nokia.majorNo, DEVICE_NAME);
-        spin_unlock(&nokia.lock);
     }
-
-    spin_lock_init(&nokia.lock);
 
     return 0;
 }
@@ -208,7 +205,6 @@ module_exit(nokia_5110_exit);
 static int dev_open(struct inode *pinode, struct file *filep)
 {
     int ret = 0;
-    spin_lock(&nokia.lock); 
 
     if ( !nokia.initialized )
     {
@@ -277,8 +273,6 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
 static int dev_release(struct inode *pinode, struct file *filep)
 {
-    spin_unlock(&nokia.lock); 
-
     return 0;
 }
 
