@@ -42,6 +42,19 @@ MODULE_AUTHOR("Michael Ryan");
 MODULE_DESCRIPTION("A driver for the Nokia 5110 display");
 MODULE_VERSION("0.1");
 
+static int dev_open(struct inode *, struct file *);
+static int dev_release(struct inode *, struct file *);
+static ssize_t dev_read(struct file *, char __user *, size_t, loff_t *);
+static ssize_t dev_write(struct file *, const char __user *, size_t, loff_t *);
+
+static int command_out(uint8_t *buffer, size_t buffer_len);
+static int data_out(const uint8_t *buffer, size_t buffer_len);
+static int raw_out(uint8_t *buffer, size_t buffer_len);
+
+static int lcd_init(void);
+static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
+static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
+
 // BeagleBone Black pinouts used
 
 static int gpioDc = 44;
@@ -78,19 +91,6 @@ static struct file_operations fops =
     .write = dev_write,
     .release = dev_release
 };
-
-static int dev_open(struct inode *, struct file *);
-static int dev_release(struct inode *, struct file *);
-static ssize_t dev_read(struct file *, char __user *, size_t, loff_t *);
-static ssize_t dev_write(struct file *, const char __user *, size_t, loff_t *);
-
-static int command_out(uint8_t *buffer, size_t buffer_len);
-static int data_out(const uint8_t *buffer, size_t buffer_len);
-static int raw_out(uint8_t *buffer, size_t buffer_len);
-
-static int lcd_init(void);
-static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
-static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 /* Attributes */
 
