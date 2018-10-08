@@ -212,6 +212,11 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
     int err = 0;   
 
+    if ( *offset > vbuffer_len )
+    {
+        *offset = 0;
+    }
+
     err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
     if (err != 0)
@@ -227,6 +232,11 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 {
     size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
     int err = 0;
+
+    if ( *offset > vbuffer_len )
+    {
+        *offset = 0;
+    }
     
     err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
 
@@ -296,7 +306,7 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
 static int raw_out(uint8_t *buffer, size_t buffer_len)
 {
     int i;
-    unsigned long delta = 5 * HZ / 1000; // every 25 ms
+    unsigned long delta = 15 * HZ / 1000; // every 25 ms
     unsigned long now = get_jiffies_64();
     unsigned long next = now + delta;
 
