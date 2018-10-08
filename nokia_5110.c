@@ -36,7 +36,7 @@ static struct nokia_struct
     struct device *dev;
     struct kobject *kobject;
     dev_t dev_no;
-    spin_lock_t lock;
+    spinlock_t lock;
     int initialized;
 } nokia = {0};
 
