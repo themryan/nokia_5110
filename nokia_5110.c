@@ -581,15 +581,15 @@ static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char
 static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
 {
     ssize_t ret = 0;
-    uint8_t mode;
+    int mode;
 
-    if( !buf )
-    {
-	    return -EFAULT;
-    }
+    char string[256] = { 0 };
 
-    ret = sscanf(buf, "%cu", &mode);
+    snprintf(string, buf_len, buf);
 
+    ret = sscanf(string, "%du", &mode);
+
+    printk(KERN_INFO "Nokia Mode %d from %s", mode, string);
     if( mode < NOKIA_5110_MODE_END )
     {
 	nokiaMode = mode;
