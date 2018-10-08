@@ -77,10 +77,7 @@ static int lcd_init(void)
     printk(KERN_INFO "Sending commands.");
     command_out(init_commands, 6);
 
-    for(i = 0; i < sizeof(displayMap); i++)
-    {
-        data_write(displayMap[i]);
-    }
+    data_out(displayMap, sizeof(displayMap));
 }
 
 static int __init nokia_5110_init(void)
