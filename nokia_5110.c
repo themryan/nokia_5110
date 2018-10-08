@@ -1,31 +1,3 @@
-/*******************************************************************
- 
-Title: nokia_5110.c
-Author: Michael Ryan
-Date: 10/7/2018
-Version: 0.1
-Purpose:  This file provides an example of a simple driver used to 
-interface to the Nokia 5110 LCD breakout boards from Sparkfun 
-(https://www.sparkfun.com/products/10168).  The driver has only
-been tested on a Beagle Bone Black with Debian 9.4.
-
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-*******************************************************************/
-
-#include <generated/autoconf.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/uaccess.h>
@@ -33,7 +5,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <linux/gpio.h>
 #include <linux/jiffies.h>
 #include <linux/kobject.h>
-#include <linux/spinlock.h>
 
 #include "nokia_5110.h"
 
@@ -55,8 +26,8 @@ static int lcd_init(void);
 static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
-static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
+static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
 
 // BeagleBone Black pinouts used
 
@@ -66,9 +37,6 @@ static int gpioSce = 67;
 
 static int gpioDout = 26;
 static int gpioSclk = 46;
-
-static uint8_t xPos = 0;
-static uint8_t yPos = 0;
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
@@ -100,10 +68,10 @@ static struct file_operations fops =
 static char lcd_settings[] = "LCDSettings";
 
 static struct kobj_attribute x =
-__ATTR("X", 0222, NULL, X_store);
+__ATTR_WO(X);
 
 static struct kobj_attribute y =
-__ATTR("Y", 0222, NULL, Y_store);
+__ATTR_WO(Y);
 
 static struct attribute *nokia_attrs[] = 
 {
@@ -178,7 +146,7 @@ static int __init nokia_5110_init(void)
     printk(KERN_INFO "Create device.");
 
     nokia.dev_no = MKDEV(nokia.majorNo, 0);
-    register_chrdev_region(nokia.dev_no, 1, "Nokia 5110");
+    register_chrdev_region(nokia.dev_no, 1, DEVICE_NAME);
     nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, DEVICE_NAME);
     printk(KERN_INFO "Device created.");
     if (IS_ERR(nokia.dev))
@@ -190,7 +158,7 @@ static int __init nokia_5110_init(void)
     }
 
     printk(KERN_INFO "Creating kobject interface");
-    nokia.kobject = kobject_create_and_add("nokia_5110", kernel_kobj);
+    nokia.kobject = kobject_create_and_add("nokia_5110", kernel_kobj->parent);
     if (IS_ERR(nokia.kobject))
     {
         printk(KERN_ALERT "\033[31mCould not create kobject\033[0m");
@@ -200,21 +168,20 @@ static int __init nokia_5110_init(void)
         return PTR_ERR(nokia.kobject);
     }
 
-    ret = sysfs_create_group(nokia.kobject, &attr_group);
-    if(result) {
+    ret = sysfs_create_group(nokia.kobject, &nokia_attr_group);
+    if(ret) {
         printk(KERN_ALERT "\033[31mFailed to create attr group\033[0m");
         class_unregister(nokia.class);
         class_destroy(nokia.class);
         unregister_chrdev(nokia.majorNo, DEVICE_NAME);
         kobject_put(nokia.kobject);
-        return result;
+        return ret;
     }
 
     printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
     if (lcd_init() == 0)
     {
-        nokia.initialized = 1;
         printk(KERN_INFO "\033[32mLCD Initialized.\033[0m");
     }
     else
@@ -264,10 +231,6 @@ static int dev_open(struct inode *pinode, struct file *filep)
 {
     int ret = 0;
 
-    if (!nokia.initialized)
-    {
-        lcd_init();
-    }
     return 0;
 }
 
@@ -540,7 +503,7 @@ static int set_temperature_control(uint8_t temp_coeff)
 }
 
 // set contrast
-static int set_temperature_control(uint8_t bias)
+static int set_lcd_contrast(uint8_t bias)
 {
     uint8_t commands_lst = 
     {
@@ -556,9 +519,14 @@ static int set_temperature_control(uint8_t bias)
 
 // Attribute show store wrappers
 
-ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
 {
     int x_pos = 0;
+
+    if( !buf || buf_len < 2 )
+    {
+	    return 0;
+    }
 
     sscanf(buf, "%u", &x_pos);
 
@@ -570,9 +538,14 @@ ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
     return x_pos;
 }
 
-ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
 {
     int y_pos = 0;
+
+    if( !buf || buf_len < 2 )
+    {
+	    return 0;
+    }
 
     sscanf(buf, "%u", &y_pos);
 

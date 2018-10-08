@@ -1,18 +1,16 @@
 #ifndef __NOKIA_5110_H__
 #define __NOKIA_5110_H__
 
-typedef unsigned char byte;
-
 /* Pin definitions:
 Most of these pins can be moved to any digital or analog pin.
 DN(MOSI)and SCLK should be left where they are (SPI pins). The
 LED (backlight) pin should remain on a PWM-capable pin. */
-//const int scePin = 7;   // SCE - Chip select, pin 3 on LCD.
-//const int rstPin = 6;   // RST - Reset, pin 4 on LCD.
-//const int dcPin = 5;    // DC - Data/Command, pin 5 on LCD.
+//const int scePin = 7;    // SCE - Chip select, pin 3 on LCD.
+//const int rstPin = 6;    // RST - Reset, pin 4 on LCD.
+//const int dcPin = 5;     // DC - Data/Command, pin 5 on LCD.
 //const int sdinPin = 11;  // DN(MOSI) - Serial data, pin 6 on LCD.
 //const int sclkPin = 13;  // SCLK - Serial clock, pin 7 on LCD.
-//const int blPin = 9;    // LED - Backlight LED, pin 8 on LCD.
+//const int blPin = 9;     // LED - Backlight LED, pin 8 on LCD.
 
 /* PCD8544-specific defines: */
 #define LCD_COMMAND 0
@@ -30,12 +28,12 @@ LED (backlight) pin should remain on a PWM-capable pin. */
 #define LCD_COMMAND_FUNCT_SET           0x20 // Power down control; entry mode; ext instr control
 /* H = 1 */
 #define LCD_COMMAND_DISP_CTRL           0x08 // Sets display configuration
-#define LCD_COMMAND_SET_Y               0x40     // Sets Y-Address of RAM 0<=Y<=5
-#define LCD_COMMAND_SET_X               0x80     // Sets X-Address of RAM 0<=X<=83
+#define LCD_COMMAND_SET_Y               0x40 // Sets Y-Address of RAM 0<=Y<=5
+#define LCD_COMMAND_SET_X               0x80 // Sets X-Address of RAM 0<=X<=83
 /* H = 1 */
 #define LCD_COMMAND_TEMP_CTRL           0x04 // Temperature Control
-#define LCD_COMMAND_BIAS_SYS            0x10  // Set Bias System
-#define LCD_COMMAND_Vop                 0x80       // Set Vop
+#define LCD_COMMAND_BIAS_SYS            0x10 // Set Bias System
+#define LCD_COMMAND_Vop                 0x80 // Set Vop
 
 /***** LCD COMMAND OPTIONS *****/
 
@@ -61,7 +59,7 @@ This table contains the hex values that represent pixels for a
 font that is 5 pixels wide and 8 pixels high. Each byte in a row
 represents one, 8-pixel, vertical column of a character. 5 bytes
 per character. */
-static const byte ASCII[][5] /*PROGMEM*/ = {
+static const uint8_t ASCII[][5] = {
     // First 32 characters (0x00-0x19) are ignored. These are
     // non-displayable, control characters.
     {0x00, 0x00, 0x00, 0x00, 0x00} // 0x20
@@ -271,7 +269,7 @@ to the PCD8544.
 
 Because the PCD8544 won't let us write individual pixels at a
 time, this is how we can make targeted changes to the display. */
-byte displayMap[LCD_WIDTH * LCD_HEIGHT / 8] = {
+uint8_t displayMap[LCD_WIDTH * LCD_HEIGHT / 8] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // (0,0)->(11,7) ~ These 12 bytes cover an 8x12 block in the left corner of the display
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // (12,0)->(23,7)
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xE0, // (24,0)->(35,7)
