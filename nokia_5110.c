@@ -47,14 +47,17 @@ static ssize_t dev_write(struct file *, const char __user *, size_t, loff_t *);
 
 static int command_out(uint8_t *buffer, size_t buffer_len);
 static int data_out(const uint8_t *buffer, size_t buffer_len);
-static int raw_out(uint8_t *buffer, size_t buffer_len);
+static int raw_out(const uint8_t *buffer, size_t buffer_len);
 
 static int lcd_init(void);
-static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
+//static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
-static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
-static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
+// Attributes functions
+static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+
+static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
 
 // BeagleBone Black pinouts used
 
@@ -64,6 +67,18 @@ static int gpioSce = 67;
 
 static int gpioDout = 26;
 static int gpioSclk = 46;
+
+static uint8_t nokiaBias = 4;
+
+typedef enum
+{
+	NOKIA_5110_MODE_TEXT = 0,
+	NOKIA_5110_MODE_GRPH = 1,
+	NOKIA_5110_MODE_COM = 3,
+	NOKIA_5110_MODE_END = 4	
+} nokia_5110_mode ;
+
+static nokia_5110_mode nokiaMode = 0; 
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
@@ -92,24 +107,22 @@ static struct file_operations fops =
 
 /* Attributes */
 
-static char lcd_settings[] = "LCDSettings";
+static struct kobj_attribute bias_attr =
+__ATTR_RO(bias);
 
-static struct kobj_attribute x =
-__ATTR(X, 0220, NULL, X_store);
-
-static struct kobj_attribute y =
-__ATTR(Y, 0220, NULL, Y_store);
+static struct kobj_attribute instr_mode = 
+__ATTR(mode, 0660, mode_show, mode_store);
 
 static struct attribute *nokia_attrs[] = 
 {
-    &x.attr,
-    &y.attr,
+    &bias_attr.attr,
+    &instr_mode.attr,
     NULL,
 };
 
 static struct attribute_group nokia_attr_group = 
 {
-    .name = lcd_settings,
+    .name = "nokia0",
     .attrs = nokia_attrs
 };
 
@@ -258,7 +271,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
 {
     int ret = 0;
 
-    return 0;
+    return ret;
 }
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
@@ -312,11 +325,11 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
     if (err != 0)
     {
-        printk(KERN_WARNING "Unable to copy %ld bytes to VBUFFER.", num_copy);
+        printk(KERN_WARNING "Unable to copy %u bytes to VBUFFER.", num_copy);
         return -EFAULT;
     }
 
-    printk(KERN_INFO "Print %ld bytes and %llu", num_copy, *offset);
+    printk(KERN_INFO "Print %u bytes and %llu", num_copy, *offset);
 
     lcd_char_write(VBUFFER, num_copy);
 
@@ -338,7 +351,7 @@ static int dev_release(struct inode *pinode, struct file *filep)
     uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01,
                                LCD_COMMAND_Vop | 0x30,
                                LCD_COMMAND_TEMP_CTRL,
-                               LCD_COMMAND_BIAS_SYS | 0x04,
+                               LCD_COMMAND_BIAS_SYS | nokiaBias,
                                LCD_COMMAND_FUNCT_SET,
                                LCD_COMMAND_DISP_CTRL | 0x04};
 
@@ -408,7 +421,7 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
 }
 
 
-static int raw_out(uint8_t *buffer, size_t buffer_len)
+static int raw_out(const uint8_t *buffer, size_t buffer_len)
 {
     unsigned long delta = 1 * HZ / 10000; // every 25 ms
     unsigned long now = get_jiffies_64();
@@ -460,18 +473,21 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 }
 
 
- /***************** LCD Commands /*****************/
-
+ /***************** LCD Commands *****************/
+#if 0
  // set y
  static int set_y(int y_pos)
  {
+     uint8_t command = LCD_COMMAND_SET_Y;
      if( y_pos >= 5 )
      {
          printk(KERN_WARNING "Invalid y position %d", y_pos);
          return -1;
      }
 
-     command_out(LCD_COMMAND_SET_Y | y_pos, 1 );
+     command |= y_pos;
+
+     command_out(&command, 1 );
 
      return 0;
  }
@@ -479,13 +495,17 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
  // set x
  static int set_x(int x_pos)
  {
+     uint8_t command = LCD_COMMAND_SET_X;
+
      if( x_pos >= 83 )
      {
          printk(KERN_WARNING "Invalid x position %d", x_pos);
          return -1;
      }
 
-     command_out(LCD_COMMAND_SET_X | x_pos, 1 );
+     command |= x_pos;
+
+     command_out(&command, 1 );
 
      return 0;
  }
@@ -493,7 +513,8 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 // set display to normal
 static int set_display_normal(void)
 {
-    command_out(LCD_COMMAND_DISP_CTRL | 0x04, 1 );
+    uint8_t command = LCD_COMMAND_DISP_CTRL | 0x04;
+    command_out(&command, 1 );
 
     return 0;
 }
@@ -501,7 +522,8 @@ static int set_display_normal(void)
 // set display pixels to black
 static int set_display_black(void)
 {
-    command_out(LCD_COMMAND_DISP_CTRL | 0x01, 1 );
+    uint8_t command = LCD_COMMAND_DISP_CTRL | 0x01;
+    command_out(&command, 1 );
 
     return 0;
 }
@@ -509,7 +531,8 @@ static int set_display_black(void)
 // set display to inverse mode
 static int set_display_inverse(void)
 {
-    command_out(LCD_COMMAND_DISP_CTRL | 0x05, 1);
+    uint8_t command = LCD_COMMAND_DISP_CTRL | 0x05;
+    command_out(&command, 1);
 
     return 0;
 }
@@ -517,7 +540,7 @@ static int set_display_inverse(void)
 // set temperature coefficient
 static int set_temperature_control(uint8_t temp_coeff)
 {
-    uint8_t commands_lst = 
+    uint8_t commands_lst[] = 
     {
         LCD_COMMAND_FUNCT_SET | LCD_COMMAND_FUNCT_EXT_H,
         LCD_COMMAND_TEMP_CTRL | (temp_coeff & 0x03),
@@ -532,7 +555,7 @@ static int set_temperature_control(uint8_t temp_coeff)
 // set contrast
 static int set_lcd_contrast(uint8_t bias)
 {
-    uint8_t commands_lst = 
+    uint8_t commands_lst[] = 
     {
         LCD_COMMAND_FUNCT_SET | LCD_COMMAND_FUNCT_EXT_H,
         LCD_COMMAND_BIAS_SYS | (bias & 0x07),
@@ -543,44 +566,35 @@ static int set_lcd_contrast(uint8_t bias)
 
     return 0;
 }
-
+#endif // 0
 // Attribute show store wrappers
 
-static ssize_t X_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
+static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-    int x_pos = 0;
+    return sprintf(buf, "%du", nokiaBias);
+}
+
+static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%du", nokiaMode);
+}
+
+static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
+{
+    ssize_t ret = 0;
+    uint8_t mode;
 
     if( !buf || buf_len < 2 )
     {
-	    return 0;
+	    return -EFAULT;
     }
 
-    sscanf(buf, "%u", &x_pos);
+    ret = sscanf(buf, "%c", &mode);
 
-    if( set_x(x_pos) == 0 )
+    if( mode < NOKIA_5110_MODE_END )
     {
-        x_pos = 0;
+	nokiaMode = mode;
     }
 
-    return x_pos;
+    return ret;
 }
-
-static ssize_t Y_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
-{
-    int y_pos = 0;
-
-    if( !buf || buf_len < 2 )
-    {
-	    return 0;
-    }
-
-    sscanf(buf, "%u", &y_pos);
-
-    if( set_y(y_pos) == 0 )
-    {
-        y_pos = 0;
-    }
-
-    return y_pos;
-}
-
