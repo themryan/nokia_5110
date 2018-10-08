@@ -192,7 +192,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
         if( lcd_init() == 0 )
         {
             nokia.initialized = 1;
-            printk(KERN_IFO "\033[32mLCD Initialized.\033[0m");
+            printk(KERN_INFO "\033[32mLCD Initialized.\033[0m");
         }
         else
         {
@@ -200,7 +200,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
             class_unregister(nokia.class);
             class_destroy(nokia.class);
             unregister_chrdev(nokia.majorNo, DEVICE_NAME);
-            spin_unlock(nokia.lock);
+            spin_unlock(&nokia.lock);
             ret = -1;
         }
     }
