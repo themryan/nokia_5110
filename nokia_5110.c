@@ -174,7 +174,7 @@ static int __init nokia_5110_init(void)
 
     nokia.dev_no = MKDEV(nokia.majorNo, 0);
     register_chrdev_region(nokia.dev_no, 1, DEVICE_NAME);
-    nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, "nokia%d");
+    nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, "nokia%d", 0);
     printk(KERN_INFO "Device created.");
     if (IS_ERR(nokia.dev))
     {
