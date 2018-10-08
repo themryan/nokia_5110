@@ -304,7 +304,6 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
         else
         {
             printk(KERN_ALERT "\033[31mIndex %d out of bounds.\033[0m", index);
-            return -1;
         }
 
         buffer++;
