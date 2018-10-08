@@ -1,3 +1,30 @@
+/*******************************************************************
+ 
+Title: nokia_5110.c
+Author: Michael Ryan
+Date: 10/7/2018
+Version: 0.1
+Purpose:  This file provides an example of a simple driver used to 
+interface to the Nokia 5110 LCD breakout boards from Sparkfun 
+(https://www.sparkfun.com/products/10168).  The driver has only
+been tested on a Beagle Bone Black with Debian 9.4.
+
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+*******************************************************************/
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/uaccess.h>
@@ -40,7 +67,7 @@ static int gpioSclk = 46;
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
-static size_t vbuffer_len = sizeof(VBUFFER);
+static size_t vbuffer_len = sizeof(displayMap);
 
 #define DEVICE_NAME "nokiacdev"
 #define CLASS_NAME "nokiaclass"
@@ -147,7 +174,7 @@ static int __init nokia_5110_init(void)
 
     nokia.dev_no = MKDEV(nokia.majorNo, 0);
     register_chrdev_region(nokia.dev_no, 1, DEVICE_NAME);
-    nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, DEVICE_NAME);
+    nokia.dev = device_create(nokia.class, NULL, nokia.dev_no, NULL, "nokia%d");
     printk(KERN_INFO "Device created.");
     if (IS_ERR(nokia.dev))
     {
