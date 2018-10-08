@@ -79,16 +79,28 @@ static int lcd_init(void)
 
 static int __init nokia_5110_init(void)
 {
-    int i = 0;
+    unsigned long now = get_jiffies_64();
+    unsigned long delta = 2 * HZ / 1000;
+    unsigned long next = now + delta;
+
     printk(KERN_INFO "Opening the Nokia 5110 driver\n");
 
     printk(KERN_INFO "Configuring the pins\n");
 
     // generic output pins
-    gpio_request(gpioSce, "sysfs");
-    gpio_direction_output(gpioSce, 0);
+
     gpio_request(gpioRst, "sysfs");
     gpio_direction_output(gpioRst, 1);
+
+    while( !time_after(now, next) )
+    {
+        now = get_jiffies_64();
+    }
+
+    gpio_set_value(gpioRst, 0);
+
+    gpio_request(gpioSce, "sysfs");
+    gpio_direction_output(gpioSce, 1);
     gpio_request(gpioDc, "sysfs");
     gpio_direction_output(gpioDc, 0);
 
@@ -97,9 +109,6 @@ static int __init nokia_5110_init(void)
     gpio_direction_output(gpioSclk, 1);
     gpio_request(gpioDout, "sysfs");
     gpio_direction_output(gpioDout, 1);
-
-    gpio_set_value(gpioRst, 0);
-    gpio_set_value(gpioSce, 1);
 
     printk(KERN_INFO "Done with configuring pins\n");
     printk(KERN_INFO "Initializing chardev\n");
