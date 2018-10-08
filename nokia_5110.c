@@ -106,9 +106,9 @@ static int __init nokia_5110_init(void)
 
     // Data and Clock
     gpio_request(gpioSclk, "sysfs");
-    gpio_direction_output(gpioSclk, 1);
+    gpio_direction_output(gpioSclk, 0);
     gpio_request(gpioDout, "sysfs");
-    gpio_direction_output(gpioDout, 1);
+    gpio_direction_output(gpioDout, 0);
 
     printk(KERN_INFO "Done with configuring pins\n");
     printk(KERN_INFO "Initializing chardev\n");
@@ -352,14 +352,18 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
             out <<= 1;
 
             while (!time_after(now, next))
+            {
                 now = get_jiffies_64();
+            }
 
             next = now + delta;
 
             gpio_set_value(gpioSclk, 1);
 
             while (!time_after(now, next))
+            {
                 now = get_jiffies_64();
+            }
 
             next = now + delta;
 
@@ -370,7 +374,8 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
     }
 
     gpio_set_value(gpioSce, 1);
-    gpio_set_value(gpioDout, 1);
+    gpio_set_value(gpioDout, 0);
+    gpio_set_value(gpioSclk, 0);
 
     return 0;
 }
