@@ -90,14 +90,14 @@ static int __init nokia_5110_init(void)
     // generic output pins
 
     gpio_request(gpioRst, "sysfs");
-    gpio_direction_output(gpioRst, 1);
+    gpio_direction_output(gpioRst, 0);
 
     while( !time_after(now, next) )
     {
         now = get_jiffies_64();
     }
 
-    gpio_set_value(gpioRst, 0);
+    gpio_set_value(gpioRst, 1);
 
     gpio_request(gpioSce, "sysfs");
     gpio_direction_output(gpioSce, 1);
@@ -229,7 +229,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 	    return -EFAULT;
     }
 
-    num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset
+    num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
 
     err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
@@ -264,11 +264,11 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
     if (err != 0)
     {
-        printk(KERN_WARNING "Unable to copy %d bytes to VBUFFER.\n", num_copy);
+        printk(KERN_WARNING "Unable to copy %ld bytes to VBUFFER.", num_copy);
         return -EFAULT;
     }
 
-    printk(KERN_INFO "Print %lu bytes and %lu", num_copy, *offset);
+    printk(KERN_INFO "Print %ld bytes and %llu", num_copy, *offset);
 
     lcd_char_write(VBUFFER, num_copy);
 
@@ -327,18 +327,17 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
 
 static int raw_out(uint8_t *buffer, size_t buffer_len)
 {
-    int i;
-    unsigned long delta = 1 * HZ / 1000; // every 25 ms
+    unsigned long delta = 10 * HZ / 10000; // every 25 ms
     unsigned long now = get_jiffies_64();
     unsigned long next = now + delta;
 
     gpio_set_value(gpioSce, 0);
-
+/*
     while (!time_after(now, next))
     {
         now = get_jiffies_64();
     }
-
+*/
     while (buffer_len)
     {
         int bits = 8;
@@ -346,10 +345,10 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 
         while (bits)
         {
-            gpio_set_value(gpioSclk, 1);
-
             // MSB first
             gpio_set_value(gpioDout, (0x80 & out) ? 1 : 0);
+
+	    gpio_set_value(gpioSclk, 1);
 
             out <<= 1;
 
