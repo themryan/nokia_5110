@@ -1,3 +1,30 @@
+/*******************************************************************
+ 
+Title: nokia_5110.c
+Author: Michael Ryan
+Date: 10/7/2018
+Version: 0.1
+Purpose:  This file provides an example of a simple driver used to 
+interface to the Nokia 5110 LCD breakout boards from Sparkfun 
+(https://www.sparkfun.com/products/10168).  The driver has only
+been tested on a Beagle Bone Black with Debian 9.4.
+
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/*******************************************************************/
+
 #include <generated/autoconf.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -15,12 +42,17 @@ MODULE_AUTHOR("Michael Ryan");
 MODULE_DESCRIPTION("A driver for the Nokia 5110 display");
 MODULE_VERSION("0.1");
 
+// BeagleBone Black pinouts used
+
 static int gpioDc = 44;
 static int gpioRst = 68;
 static int gpioSce = 67;
 
 static int gpioDout = 26;
 static int gpioSclk = 46;
+
+static uint8_t xPos = 0;
+static uint8_t yPos = 0;
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
@@ -36,9 +68,16 @@ static struct nokia_struct
     struct device *dev;
     struct kobject *kobject;
     dev_t dev_no;
-    spinlock_t lock;
-    int initialized;
+
 } nokia = {0};
+
+static struct file_operations fops =
+{
+    .open = dev_open,
+    .read = dev_read,
+    .write = dev_write,
+    .release = dev_release
+};
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -49,38 +88,39 @@ static int command_out(uint8_t *buffer, size_t buffer_len);
 static int data_out(const uint8_t *buffer, size_t buffer_len);
 static int raw_out(uint8_t *buffer, size_t buffer_len);
 
-static struct file_operations fops =
-    {
-        .open = dev_open,
-        .read = dev_read,
-        .write = dev_write,
-        .release = dev_release};
-
+static int lcd_init(void);
 static int lcd_raw_write(uint8_t *buffer, size_t buffer_len);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
-/*   Module Initiazlization and Exit */
+/* Attributes */
 
-static int lcd_init(void)
+static char lcd_settings[] = "LCDSettings";
+
+static struct kobj_attribute x =
+__ATTR("X", 0222, NULL, _X_store);
+
+static struct kobj_attribute y =
+__ATTR("Y", 0222, NULL, _Y_store);
+
+static struct attribute *nokia_attrs[] = 
 {
-    int i = 0;
-    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01,
-                               LCD_COMMAND_Vop | 0x30,
-                               LCD_COMMAND_TEMP_CTRL,
-                               LCD_COMMAND_BIAS_SYS | 0x04,
-                               LCD_COMMAND_FUNCT_SET,
-                               LCD_COMMAND_DISP_CTRL | 0x04};
+    &x.attr,
+    &y.attr,
+    NULL,
+};
 
-    printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
-
-    printk(KERN_INFO "Sending commands.");
-    command_out(init_commands, 6);
-
-    data_out(displayMap, sizeof(displayMap));
+static struct attribute_group nokia_attr_group = 
+{
+    .name = lcd_settings,
+    .attr = nokia_attrs
 }
 
+/*   Module Initiazlization and Exit */
+
+// INIT
 static int __init nokia_5110_init(void)
 {
+    int ret;
     unsigned long now = get_jiffies_64();
     unsigned long delta = 2 * HZ / 1000;
     unsigned long next = now + delta;
@@ -157,6 +197,16 @@ static int __init nokia_5110_init(void)
         return PTR_ERR(nokia.kobject);
     }
 
+    ret = sysfs_create_group(nokia.kobject, &attr_group);
+    if(result) {
+        printk(KERN_ALERT "\033[31mFailed to create attr group\033[0m");
+        class_unregister(nokia.class);
+        class_destroy(nokia.class);
+        unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+        kobject_put(nokia.kobject);
+        return result;
+    }
+
     printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
     if (lcd_init() == 0)
@@ -175,6 +225,7 @@ static int __init nokia_5110_init(void)
     return 0;
 }
 
+// EXIT
 static void __exit nokia_5110_exit(void)
 {
     printk(KERN_INFO "\033[31mExiting the Nokia 5110 driver\033[0m");
@@ -197,12 +248,14 @@ static void __exit nokia_5110_exit(void)
     class_unregister(nokia.class);
     class_destroy(nokia.class);
     unregister_chrdev(nokia.majorNo, DEVICE_NAME);
-    kobject_del(nokia.kobject);
+    kobject_put(nokia.kobject);
     printk(KERN_INFO "Devices unregistered and released.\n");
 }
 
 module_init(nokia_5110_init);
 module_exit(nokia_5110_exit);
+
+ /***************** Device Controls *****************/
 
 static int dev_open(struct inode *pinode, struct file *filep)
 {
@@ -282,14 +335,41 @@ static int dev_release(struct inode *pinode, struct file *filep)
     return 0;
 }
 
-// LCD Device controls
-//
-//
-//
+ /***************** LCD Controls *****************/
 
+
+// Initializes the lcd 
+ static int lcd_init(void)
+{
+    // default startup settings
+    uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01,
+                               LCD_COMMAND_Vop | 0x30,
+                               LCD_COMMAND_TEMP_CTRL,
+                               LCD_COMMAND_BIAS_SYS | 0x04,
+                               LCD_COMMAND_FUNCT_SET,
+                               LCD_COMMAND_DISP_CTRL | 0x04};
+
+    printk(KERN_INFO "\033[32mInitializing LCD and setting pins.\033[0m");
+
+    printk(KERN_INFO "Sending commands.");
+    command_out(init_commands, 6);
+
+    // write default screen 
+    return data_out(displayMap, sizeof(displayMap));
+}
+
+/********************************************************
+ *
+ * Writes a character to 8x5 rectangle at current position
+ *  params: 
+ *       buffer - ASCII character array
+ *       buffer_len - number of bytes in buffer    
+ *       
+ *********************************************************/
 static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
 {
     const uint8_t *out_bits = NULL;
+    int escaped = 0;
 
     while (buffer_len)
     {
@@ -301,9 +381,13 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
             data_out(out_bits, 5);
             gpio_set_value(gpioSce, 1);
         }
+        else if ( !escaped && *buffer == '\\' )
+        {
+            escaped = 1;
+        }
         else
         {
-            printk(KERN_ALERT "\033[31mIndex %d out of bounds.\033[0m", index);
+            printk(KERN_ALERT "\033[31mChar index %d out of bounds.\033[0m", index);
         }
 
         buffer++;
@@ -313,12 +397,15 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
     return 0;
 }
 
+
+
 static int command_out(uint8_t *buffer, size_t buffer_len)
 {
     gpio_set_value(gpioDc, 0);
 
     return raw_out(buffer, buffer_len);
 }
+
 
 static int data_out(const uint8_t *buffer, size_t buffer_len)
 {
@@ -327,6 +414,7 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
     return raw_out(buffer, buffer_len);
 }
 
+
 static int raw_out(uint8_t *buffer, size_t buffer_len)
 {
     unsigned long delta = 1 * HZ / 10000; // every 25 ms
@@ -334,12 +422,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
     unsigned long next = now + delta;
 
     gpio_set_value(gpioSce, 0);
-    /*
-    while (!time_after(now, next))
-    {
-        now = get_jiffies_64();
-    }
-*/
+
     while (buffer_len)
     {
         int bits = 8;
@@ -382,3 +465,119 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 
     return 0;
 }
+
+
+ /***************** LCD Commands /*****************/
+
+ // set y
+ static int set_y(int y_pos)
+ {
+     if( y_pos >= 5 )
+     {
+         printk(KERN_WARNING "Invalid y position %d", y_pos);
+         return -1;
+     }
+
+     command_out(LCD_COMMAND_SET_Y | y_pos, 1 );
+
+     return 0;
+ }
+
+ // set x
+ static int set_x(int x_pos)
+ {
+     if( x_pos >= 83 )
+     {
+         printk(KERN_WARNING "Invalid x position %d", x_pos);
+         return -1;
+     }
+
+     command_out(LCD_COMMAND_SET_X | x_pos, 1 );
+
+     return 0;
+ }
+
+// set display to normal
+static int set_display_normal(void)
+{
+    command_out(LCD_COMMAND_DISP_CTRL | 0x04, 1 );
+
+    return 0;
+}
+
+// set display pixels to black
+static int set_display_black(void)
+{
+    command_out(LCD_COMMAND_DISP_CTRL | 0x01, 1 );
+
+    return 0;
+}
+
+// set display to inverse mode
+static int set_display_inverse(void)
+{
+    command_out(LCD_COMMAND_DISP_CTRL | 0x05, 1);
+
+    return 0;
+}
+
+// set temperature coefficient
+static int set_temperature_control(uint8_t temp_coeff)
+{
+    uint8_t commands_lst = 
+    {
+        LCD_COMMAND_FUNCT_SET | LCD_COMMAND_FUNCT_EXT_H,
+        LCD_COMMAND_TEMP_CTRL | (temp_coeff & 0x03),
+        LCD_COMMAND_FUNCT_SET
+    };
+
+    command_out(commands_lst, sizeof(commands_lst));
+
+    return 0;
+}
+
+// set contrast
+static int set_temperature_control(uint8_t bias)
+{
+    uint8_t commands_lst = 
+    {
+        LCD_COMMAND_FUNCT_SET | LCD_COMMAND_FUNCT_EXT_H,
+        LCD_COMMAND_BIAS_SYS | (bias & 0x07),
+        LCD_COMMAND_FUNCT_SET
+    };
+
+    command_out(commands_lst, sizeof(commands_lst));
+
+    return 0;
+}
+
+// Attribute show store wrappers
+
+ssize_t _X_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+    int x_pos = 0;
+
+    sscanf(buf, "%u", &x_pos);
+
+    if( set_x(x_pos) == 0 )
+    {
+        x_pos = 0;
+    }
+
+    return x_pos;
+}
+
+ssize_t _Y_store(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+    int y_pos = 0;
+
+    sscanf(buf, "%u", &y_pos);
+
+    if( set_y(y_pos) == 0 )
+    {
+        y_pos = 0;
+    }
+
+    return y_pos;
+}
+
