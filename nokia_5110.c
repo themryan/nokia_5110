@@ -268,6 +268,8 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
         return -EFAULT;
     }
 
+    printk(KERN_INFO "Print %d bytes", num_copy);
+
     lcd_char_write(VBUFFER, num_copy);
 
     return num_copy;
