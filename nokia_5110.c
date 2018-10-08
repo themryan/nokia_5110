@@ -583,12 +583,12 @@ static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, con
     ssize_t ret = 0;
     uint8_t mode;
 
-    if( !buf || buf_len < 2 )
+    if( !buf )
     {
 	    return -EFAULT;
     }
 
-    ret = sscanf(buf, "%c", &mode);
+    ret = sscanf(buf, "%cu", &mode);
 
     if( mode < NOKIA_5110_MODE_END )
     {
