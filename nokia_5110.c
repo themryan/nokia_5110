@@ -23,7 +23,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/*******************************************************************/
+*******************************************************************/
 
 #include <generated/autoconf.h>
 #include <linux/module.h>
@@ -112,7 +112,7 @@ static struct attribute *nokia_attrs[] =
 static struct attribute_group nokia_attr_group = 
 {
     .name = lcd_settings,
-    .attr = nokia_attrs
+    .attrs = nokia_attrs
 }
 
 /*   Module Initiazlization and Exit */
