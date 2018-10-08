@@ -330,7 +330,7 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
 
 static int raw_out(uint8_t *buffer, size_t buffer_len)
 {
-    unsigned long delta = 10 * HZ / 10000; // every 25 ms
+    unsigned long delta = 1 * HZ / 10000; // every 25 ms
     unsigned long now = get_jiffies_64();
     unsigned long next = now + delta;
 
