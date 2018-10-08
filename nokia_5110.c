@@ -23,7 +23,7 @@ static int gpioDout = 26;
 static int gpioSclk = 46;
 
 // buffer for video
-static uint8_t VBUFFER[LCD_HEIGHT * LCD_WIDTH / 8] = {0};
+static uint8_t * VBUFFER = displayMap;
 static size_t vbuffer_len = sizeof(VBUFFER);
 
 #define DEVICE_NAME "nokiacdev"
@@ -64,6 +64,7 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 static int lcd_init(void)
 {
+    int i = 0;
     uint8_t init_commands[] = {LCD_COMMAND_FUNCT_SET | 0x01, 
                                 LCD_COMMAND_Vop | 0x30,
                                 LCD_COMMAND_TEMP_CTRL, 
@@ -75,6 +76,11 @@ static int lcd_init(void)
 
     printk(KERN_INFO "Sending commands.");
     command_out(init_commands, 6);
+
+    for(i = 0; i < sizeof(displayMap); i++)
+    {
+        data_write(displayMap[i]);
+    }
 }
 
 static int __init nokia_5110_init(void)
