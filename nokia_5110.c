@@ -217,6 +217,12 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
         *offset = 0;
     }
 
+    if ( len == 0 || !buffer )
+    {
+	    printk(KERN_ALERT "Invalid buffer.");
+	    return -EFAULT;
+    }
+
     err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
     if (err != 0)
@@ -225,7 +231,7 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
         return -EFAULT;
     }
 
-    return 0;
+    return num_copy;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
@@ -236,6 +242,12 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     if ( *offset > vbuffer_len )
     {
         *offset = 0;
+    }
+
+    if( len == 0 || !buffer )
+    {
+	    printk(KERN_ALERT "Invalid buffer.");
+	    return -EFAULT;
     }
     
     err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
@@ -248,12 +260,13 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
     lcd_char_write(VBUFFER, num_copy);
 
-    return 0;
+    return num_copy;
 }
 
 static int dev_release(struct inode *pinode, struct file *filep)
 {
     spin_unlock(&nokia.lock); 
+
     return 0;
 }
 
