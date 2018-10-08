@@ -328,11 +328,16 @@ static int data_out(const uint8_t *buffer, size_t buffer_len)
 static int raw_out(uint8_t *buffer, size_t buffer_len)
 {
     int i;
-    unsigned long delta = 15 * HZ / 1000; // every 25 ms
+    unsigned long delta = 1 * HZ / 1000; // every 25 ms
     unsigned long now = get_jiffies_64();
     unsigned long next = now + delta;
 
     gpio_set_value(gpioSce, 0);
+
+    while (!time_after(now, next))
+    {
+        now = get_jiffies_64();
+    }
 
     while (buffer_len)
     {
@@ -341,7 +346,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 
         while (bits)
         {
-            gpio_set_value(gpioSclk, 0);
+            gpio_set_value(gpioSclk, 1);
 
             // MSB first
             gpio_set_value(gpioDout, (0x80 & out) ? 1 : 0);
@@ -355,7 +360,7 @@ static int raw_out(uint8_t *buffer, size_t buffer_len)
 
             next = now + delta;
 
-            gpio_set_value(gpioSclk, 1);
+            gpio_set_value(gpioSclk, 0);
 
             while (!time_after(now, next))
             {
