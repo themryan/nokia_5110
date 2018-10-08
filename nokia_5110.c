@@ -148,6 +148,21 @@ static int __init nokia_5110_init(void)
 
     printk(KERN_INFO "\033[32mnokia_5110 succesfully initialized.\033[0m");
 
+    if( lcd_init() == 0 )
+    {
+        nokia.initialized = 1;
+        printk(KERN_INFO "\033[32mLCD Initialized.\033[0m");
+    }
+    else
+    {
+        printk(KERN_ALERT "\033[31mCould not initialize LCD control.\033[0m");
+        class_unregister(nokia.class);
+        class_destroy(nokia.class);
+        unregister_chrdev(nokia.majorNo, DEVICE_NAME);
+        spin_unlock(&nokia.lock);
+        ret = -1;
+    }
+
     spin_lock_init(&nokia.lock);
 
     return 0;
@@ -189,20 +204,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
 
     if ( !nokia.initialized )
     {
-        if( lcd_init() == 0 )
-        {
-            nokia.initialized = 1;
-            printk(KERN_INFO "\033[32mLCD Initialized.\033[0m");
-        }
-        else
-        {
-            printk(KERN_ALERT "\033[31mCould not initialize LCD control.\033[0m");
-            class_unregister(nokia.class);
-            class_destroy(nokia.class);
-            unregister_chrdev(nokia.majorNo, DEVICE_NAME);
-            spin_unlock(&nokia.lock);
-            ret = -1;
-        }
+        lcd_init() ;
     }
     return 0;
 }
