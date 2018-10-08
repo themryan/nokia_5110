@@ -215,12 +215,12 @@ static int dev_open(struct inode *pinode, struct file *filep)
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    size_t num_copy = 0;
     int err = 0;   
 
-    if ( *offset > vbuffer_len )
+    if ( *offset >= vbuffer_len )
     {
-        *offset = 0;
+        return 0;
     }
 
     if ( len == 0 || !buffer )
@@ -228,6 +228,8 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 	    printk(KERN_ALERT "Invalid buffer.");
 	    return -EFAULT;
     }
+
+    num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset
 
     err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
@@ -242,12 +244,12 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    size_t num_copy = 0;
     int err = 0;
 
-    if ( *offset > vbuffer_len )
+    if ( *offset >= vbuffer_len )
     {
-        *offset = 0;
+        return 0;
     }
 
     if( len == 0 || !buffer )
@@ -255,6 +257,8 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 	    printk(KERN_ALERT "Invalid buffer.");
 	    return -EFAULT;
     }
+
+    num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
     
     err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
 
