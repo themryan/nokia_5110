@@ -54,10 +54,35 @@ static int lcd_init(void);
 static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 // Attributes functions
-static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%du", nokiaBias);
+}
 
-static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
+static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%du", nokiaMode);
+}
+
+static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
+{
+    ssize_t ret = 0;
+    uint8_t mode;
+
+    if( !buf || buf_len < 2 )
+    {
+	    return -EFAULT;
+    }
+
+    ret = sscanf(buf, "%c", &mode);
+
+    if( mode < NOKIA_5110_MODE_END )
+    {
+	nokiaMode = mode;
+    }
+
+    return ret;
+}
 
 // BeagleBone Black pinouts used
 
@@ -569,32 +594,3 @@ static int set_lcd_contrast(uint8_t bias)
 #endif // 0
 // Attribute show store wrappers
 
-static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-    return sprintf(buf, "%du", nokiaBias);
-}
-
-static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-    return sprintf(buf, "%du", nokiaMode);
-}
-
-static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
-{
-    ssize_t ret = 0;
-    uint8_t mode;
-
-    if( !buf || buf_len < 2 )
-    {
-	    return -EFAULT;
-    }
-
-    ret = sscanf(buf, "%c", &mode);
-
-    if( mode < NOKIA_5110_MODE_END )
-    {
-	nokiaMode = mode;
-    }
-
-    return ret;
-}
