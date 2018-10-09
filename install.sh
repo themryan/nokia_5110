@@ -26,7 +26,15 @@ if [ $? -eq 1 ]; then
 	exit 1
 fi
 
-sudo cp 99-nokiacdev.rules /etc/udev/rules.d/ 2> $error_log
+if [ -e "/etc/udev/rules.d/99-nokiacdev.rules" ]; then
+	echo -e "\033[33mUDEV rule already exists\033[0m"
+else
+	sudo cp 99-nokiacdev.rules /etc/udev/rules.d/ 2> $error_log
+
+	if [ $? -eq 1 ]; then
+		echo -e "\033[31mFailed to copy udev rule.\033[0m"
+	fi
+fi
 
 sudo rmmod nokia_5110 > /dev/null
 
