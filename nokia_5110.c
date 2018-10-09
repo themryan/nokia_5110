@@ -130,7 +130,7 @@ static int __init nokia_5110_init(void)
 {
     int ret;
     unsigned long now = get_jiffies_64();
-    unsigned long delta = 2 * HZ / 1000;
+    unsigned long delta = 5 * HZ / 10000;
     unsigned long next = now + delta;
 
     printk(KERN_INFO "Opening the Nokia 5110 driver\n");
@@ -276,7 +276,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = len;
-    size_t num_not_copied = 0;
+    int err = 0;
 
     if (*offset >= vbuffer_len)
     {
@@ -286,16 +286,16 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     if (len == 0 || !buffer)
     {
         printk(KERN_ALERT "Invalid buffer.");
-        return 0;
+        return -EFAULT;
     }
 
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
 
     read_lock(&nokia_lock);
-    num_not_copied = copy_to_user(buffer, VBUFFER + *offset, num_copy);
+    err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
     read_unlock(&nokia_lock);
 
-    return num_copy - num_not_copied;
+    return err;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
@@ -312,7 +312,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     if (len == 0 || !buffer)
     {
         printk(KERN_ALERT "Invalid buffer.");
-        return 0;
+        return -EFAULT;
     }
 
     num_copy = (cbuffer_len > len + *offset) ? len : cbuffer_len - *offset;
@@ -362,6 +362,7 @@ static int copy_into_vbuffer(uint8_t * buffer_in, size_t bytes_to_copy)
 
     while( bytes_to_copy )
     {
+        num_to_copy = bytes_to_copy;
         if ( bytes_to_copy + vbuffer_index > vbuffer_len )
         {
             num_to_copy = vbuffer_len - vbuffer_index ;
@@ -400,7 +401,7 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
         {
             out_bits = ASCII[index];
 
-            copy_into_vbuffer(buffer, 5);
+            copy_into_vbuffer(out_bits, 5);
             gpio_set_value(gpioSce, 1);
         }
         else if ( !escaped && *buffer == '\\' )
