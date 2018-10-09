@@ -1,0 +1,1 @@
+KERNEL=="nokia0", SUBSYSTEM=="nokia_5110", MODE="0666" 
