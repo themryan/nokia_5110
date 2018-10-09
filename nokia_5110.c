@@ -80,7 +80,11 @@ typedef enum
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
-static size_t vbuffer_len = sizeof(displayMap);
+const static size_t vbuffer_len = sizeof(displayMap);
+static size_t vbuffer_index = 0;
+// buffer for characters
+static size_t cbuffer_len = LCD_WIDTH*LCD_HEIGHT/40;
+static char CBUFFER[cbuffer_len];
 
 #define DEVICE_NAME "nokiacdev"
 #define CLASS_NAME "nokia_5110"
@@ -299,7 +303,8 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     size_t num_copy = len;
     size_t num_not_copied = 0;
 
-    if (*offset >= vbuffer_len)
+
+    if (*offset >= cbuffer_len)
     {
         return 0;
     }
@@ -310,15 +315,15 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
         return 0;
     }
 
-    num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    num_copy = (cbuffer_len > len + *offset) ? len : cbuffer_len - *offset;
 
     write_lock(&nokia_lock);
-    num_not_copied = copy_from_user(VBUFFER + *offset, buffer, num_copy);
+    num_not_copied = copy_from_user(CBUFFER + *offset, buffer, num_copy);
+
+    lcd_char_write(CBUFFER, num_copy);
+    write_unlock(&nokia_lock);
 
     printk(KERN_INFO "Print %u bytes and %llu", num_copy, *offset);
-
-    lcd_char_write(VBUFFER, num_copy);
-    write_unlock(&nokia_lock);
 
     return num_copy - num_not_copied;
 }
@@ -351,6 +356,28 @@ static int dev_release(struct inode *pinode, struct file *filep)
     return data_out(displayMap, sizeof(displayMap));
 }
 
+static int copy_into_vbuffer(uint8_t * buffer_in, size_t bytes_to_copy)
+{
+    int num_to_copy = bytes_to_copy;
+
+    while( bytes_to_copy )
+    {
+        if ( bytes_to_copy + vbuffer_index > vbuffer_len )
+        {
+            num_to_copy = vbuffer_len - vbuffer_index ;
+        }
+        memcpy(&VBUFFER[vbuffer_index, buffer_in, num_to_copy]);
+        data_out(&VBUFFER[vbuffer_index], num_to_copy);
+        vbuffer_index += num_to_copy;
+    
+        if( vbuffer_index >= vbuffer_len )
+        {
+            vbuffer_index = vbuffer_index-vbuffer_len;
+        }
+        bytes_to_copy -= num_to_copy;
+    }
+}
+
 /********************************************************
  *
  * Writes a character to 8x5 rectangle at current position
@@ -371,7 +398,7 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
         {
             out_bits = ASCII[index];
 
-            data_out(out_bits, 5);
+            copy_into_vbuffer(buffer, 5);
             gpio_set_value(gpioSce, 1);
         }
         else if ( !escaped && *buffer == '\\' )
