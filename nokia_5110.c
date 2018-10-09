@@ -83,7 +83,7 @@ static uint8_t *VBUFFER = displayMap;
 const static size_t vbuffer_len = sizeof(displayMap);
 static size_t vbuffer_index = 0;
 // buffer for characters
-static size_t cbuffer_len = LCD_WIDTH*LCD_HEIGHT/40;
+const static size_t cbuffer_len = LCD_WIDTH*LCD_HEIGHT/40;
 static char CBUFFER[cbuffer_len];
 
 #define DEVICE_NAME "nokiacdev"
@@ -366,7 +366,7 @@ static int copy_into_vbuffer(uint8_t * buffer_in, size_t bytes_to_copy)
         {
             num_to_copy = vbuffer_len - vbuffer_index ;
         }
-        memcpy(&VBUFFER[vbuffer_index, buffer_in, num_to_copy]);
+        memcpy(&VBUFFER[vbuffer_index], buffer_in, num_to_copy);
         data_out(&VBUFFER[vbuffer_index], num_to_copy);
         vbuffer_index += num_to_copy;
     
@@ -376,6 +376,8 @@ static int copy_into_vbuffer(uint8_t * buffer_in, size_t bytes_to_copy)
         }
         bytes_to_copy -= num_to_copy;
     }
+
+    return 0;
 }
 
 /********************************************************
