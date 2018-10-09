@@ -84,7 +84,7 @@ const static size_t vbuffer_len = sizeof(displayMap);
 static size_t vbuffer_index = 0;
 // buffer for characters
 const static size_t cbuffer_len = LCD_WIDTH*LCD_HEIGHT/40;
-static char CBUFFER[LCD_WIDTH*LCD_HEIGHT/40];
+static char CBUFFER[LCD_WIDTH*LCD_HEIGHT/40] = { 0 };
 
 #define DEVICE_NAME "nokiacdev"
 #define CLASS_NAME "nokia_5110"
