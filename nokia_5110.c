@@ -271,7 +271,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = 0;
+    size_t num_copy = len;
     size_t num_not_copied = 0;
 
     if (*offset >= vbuffer_len)
@@ -282,21 +282,21 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     if (len == 0 || !buffer)
     {
         printk(KERN_ALERT "Invalid buffer.");
-        return -EFAULT;
+        return 0;
     }
 
-    read_lock(&nokia_lock);
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
-    read_unlock(&nokia_lock);
 
+    read_lock(&nokia_lock);
     num_not_copied = copy_to_user(buffer, VBUFFER + *offset, num_copy);
+    read_unlock(&nokia_lock);
 
     return num_copy - num_not_copied;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
-    size_t num_copy = 0;
+    size_t num_copy = len;
     size_t num_not_copied = 0;
 
     if (*offset >= vbuffer_len)
@@ -307,7 +307,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     if (len == 0 || !buffer)
     {
         printk(KERN_ALERT "Invalid buffer.");
-        return -EFAULT;
+        return 0;
     }
 
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
