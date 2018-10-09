@@ -32,6 +32,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <linux/gpio.h>
 #include <linux/jiffies.h>
 #include <linux/kobject.h>
+#include <linux/spinlock.h>
 
 #include "nokia_5110.h"
 
@@ -39,6 +40,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Michael Ryan");
 MODULE_DESCRIPTION("A driver for the Nokia 5110 display");
 MODULE_VERSION("0.1");
+
+DEFINE_RWLOCK(nokia_lock);
 
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
@@ -55,9 +58,6 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_lne);
 
 // Attributes functions
 static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-
-static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len);
 
 // BeagleBone Black pinouts used
 
@@ -77,8 +77,6 @@ typedef enum
 	NOKIA_5110_MODE_COM = 3,
 	NOKIA_5110_MODE_END = 4	
 } nokia_5110_mode ;
-
-static nokia_5110_mode nokiaMode = 0; 
 
 // buffer for video
 static uint8_t *VBUFFER = displayMap;
@@ -110,13 +108,9 @@ static struct file_operations fops =
 static struct kobj_attribute bias_attr =
 __ATTR_RO(bias);
 
-static struct kobj_attribute instr_mode = 
-__ATTR(mode, 0660, mode_show, mode_store);
-
 static struct attribute *nokia_attrs[] = 
 {
     &bias_attr.attr,
-    &instr_mode.attr,
     NULL,
 };
 
@@ -138,6 +132,8 @@ static int __init nokia_5110_init(void)
     printk(KERN_INFO "Opening the Nokia 5110 driver\n");
 
     printk(KERN_INFO "Configuring the pins\n");
+
+    rwlock_init(&nokia_lock);
 
     // generic output pins
 
@@ -197,7 +193,7 @@ static int __init nokia_5110_init(void)
     }
 
     printk(KERN_INFO "Creating kobject interface");
-    nokia.kobject = kobject_create_and_add("nokia_5110", kernel_kobj->parent);
+    nokia.kobject = kobject_create_and_add("nokia_5110", NULL);
     if (IS_ERR(nokia.kobject))
     {
         printk(KERN_ALERT "\033[31mCould not create kobject\033[0m");
@@ -276,7 +272,7 @@ static int dev_open(struct inode *pinode, struct file *filep)
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = 0;
-    int err = 0;
+    size_t num_not_copied = 0;
 
     if (*offset >= vbuffer_len)
     {
@@ -289,23 +285,19 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
         return -EFAULT;
     }
 
+    read_lock(&nokia_lock);
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
+    read_unlock(&nokia_lock);
 
-    err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
+    num_not_copied = copy_to_user(buffer, VBUFFER + *offset, num_copy);
 
-    if (err != 0)
-    {
-        printk(KERN_WARNING "Unable to copy %d bytes to buffer.\n", num_copy);
-        return -EFAULT;
-    }
-
-    return num_copy;
+    return num_copy - num_not_copied;
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
     size_t num_copy = 0;
-    int err = 0;
+    size_t num_not_copied = 0;
 
     if (*offset >= vbuffer_len)
     {
@@ -320,19 +312,15 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
     num_copy = (vbuffer_len > len + *offset) ? len : vbuffer_len - *offset;
 
-    err = copy_from_user(VBUFFER + *offset, buffer, num_copy);
-
-    if (err != 0)
-    {
-        printk(KERN_WARNING "Unable to copy %u bytes to VBUFFER.", num_copy);
-        return -EFAULT;
-    }
+    write_lock(&nokia_lock);
+    num_not_copied = copy_from_user(VBUFFER + *offset, buffer, num_copy);
 
     printk(KERN_INFO "Print %u bytes and %llu", num_copy, *offset);
 
     lcd_char_write(VBUFFER, num_copy);
+    write_unlock(&nokia_lock);
 
-    return num_copy;
+    return num_copy - num_not_copied;
 }
 
 static int dev_release(struct inode *pinode, struct file *filep)
@@ -392,7 +380,7 @@ static int lcd_char_write(uint8_t *buffer, size_t buffer_len)
         }
         else
         {
-            printk(KERN_ALERT "\033[31mChar index %d out of bounds.\033[0m", index);
+            printk(KERN_WARNING "\033[31mChar index %d out of bounds.\033[0m", index);
         }
 
         buffer++;
@@ -573,27 +561,3 @@ static ssize_t bias_show(struct kobject *kobj, struct kobj_attribute *attr, char
     return sprintf(buf, "%du", nokiaBias);
 }
 
-static ssize_t mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-    return sprintf(buf, "%du", nokiaMode);
-}
-
-static ssize_t mode_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t buf_len)
-{
-    ssize_t ret = 0;
-    int mode;
-
-    char string[256] = { 0 };
-
-    snprintf(string, buf_len, buf);
-
-    ret = sscanf(string, "%du", &mode);
-
-    printk(KERN_INFO "Nokia Mode %d from %s", mode, string);
-    if( mode < NOKIA_5110_MODE_END )
-    {
-	nokiaMode = mode;
-    }
-
-    return ret;
-}
