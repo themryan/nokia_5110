@@ -295,8 +295,6 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *of
     err = copy_to_user(buffer, VBUFFER + *offset, num_copy);
     read_unlock(&nokia_lock);
 
-    *offset = *offset + num_copy;
-
     return err;
 }
 
